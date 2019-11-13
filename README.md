@@ -1,2 +1,2 @@
 # Crimepredict
-to predict a crime type and dispatch forces accordingly
+To predict a crime type and dispatch forces accordingly
