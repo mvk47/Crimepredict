@@ -1,1 +1,167 @@
+my_data<-read.csv("PDI__Police_Data_Initiative__Crime_Incidentsdata.csv")
+#sum(is.na(my_data[1:40]))
+my_data_final<-my_data[,-c(1,8,9,12:16,20,23:27,36,37,39)]
+#sum(is.na(my_data_final[23]))
+install.packages("dplyr")
+library(dplyr)
+abc<-mutate_all(my_data_final, funs(na_if(.,"")))
+sum(is.na(abc[9]))
+Final_nona_data<-abc[(complete.cases(abc)),]
+
+library(tidyverse)
+library(lubridate)
+
+Final1 <- (separate(Final_nona_data, col=CLSD, into=c("Clsd_code", "Clsd_Des"),sep ="--" ))
+Final2 <- (separate(Final1, col=WEAPONS, into=c("W_code", "W_Des"),sep ="-" ))
+Final3 <- (separate(Final2, col=LOCATION, into=c("L_code", "L_Des"),sep ="-" ))
+Final4 <- (separate(Final3, col=DATE_REPORTED, into=c("DATE_REPORTED_DATE", "DATE_REPORTED_TIME"),sep =" " ))
+Final5 <- (separate(Final4, col=DATE_FROM, into=c("DATE_FROM_DATE", "DATE_FROM_TIME"),sep =" " ))
+Final6 <- (separate(Final5, col=DATE_TO, into=c("DATE_TO_DATE", "DATE_TO_TIME"),sep =" " ))
+Final7 <- (separate(Final6, col = DATE_REPORTED_DATE, into = c("DATE_REPORTED_MONTH", "DATE_REPORTED_DAY", "DATE_REPORTED_YEAR"), sep = "/"))
+
+summary(Final7)
+
+Theft <- Final7[which(Final7$OFFENSE=="THEFT"),]
+Rape <- Final7[which(Final7$OFFENSE=="RAPE"),]
+Assault <- Final7[which(Final7$OFFENSE=="ASSAULT"),]
+Robbery <- Final7[which(Final7$OFFENSE=="ROBBERY"),]
+Domestic_Violence <- Final7[which(Final7$OFFENSE=="DOMESTIC VIOLENCE"),]
+
+total <- rbind(Theft, Rape, Assault, Robbery, Domestic_Violence)
+
+d<-total[total$L_code==c("01","02","24","43","47","48", "49"),]
+graph1 <- ggplot(d, aes(x = L_code, fill = OFFENSE)) + geom_bar() +scale_fill_brewer(palette = "Dark2")
+print(graph1 + ggtitle("L_code vs. Offense"))
+
+final_rpt_data<-Final6[,c(14,15)]
+final_rpt_data$RPT_AREA<-as.numeric(final_rpt_data$RPT_AREA)
+graph2 <- final_rpt_data%>% group_by(DAYOFWEEK)%>%ggplot(aes(x=DAYOFWEEK ,y=RPT_AREA,color=DAYOFWEEK))+geom_col()+scale_fill_brewer(palette = "Dark2")
+graph2 + scale_x_discrete(limits=c("SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"))
+
+graph3 <- ggplot(total, aes(x = DATE_REPORTED_MONTH, fill = OFFENSE)) + scale_x_discrete(limits=c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12")) + geom_bar() + scale_fill_brewer(palette = "Dark2")
+print(graph3 + ggtitle("Month vs. Offense"))
+
+graph4 <- ggplot(total, aes(x = DATE_REPORTED_MONTH, fill = OFFENSE)) + scale_x_discrete(limits=c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12")) + geom_bar(position = "dodge")
+print(graph4 + ggtitle("Month vs. Offense"))
+
+graph5 <- ggplot(total, aes(x = DATE_REPORTED_MONTH, fill = UCR_GROUP)) + scale_x_discrete(limits=c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12")) + geom_bar() + scale_fill_brewer(palette = "Dark2")
+print(graph5 + ggtitle("Month vs. UCR Group"))
+
+graph6 <- ggplot(total, aes(x = DAYOFWEEK, fill = OFFENSE)) + scale_x_discrete(limits=c("SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY")) + geom_bar() + scale_fill_brewer(palette = "Dark2")
+print(graph6 + ggtitle("Day of Week vs. Offense"))
+
+graph7 <- ggplot(total, aes(x = DATE_REPORTED_MONTH, fill = OFFENSE)) + scale_x_discrete(limits=c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12")) + geom_bar(position = "dodge")
+print(graph7 + ggtitle("Day of Week vs. Offense"))
+
+graph8 <- ggplot(total, aes(x = DAYOFWEEK, fill = UCR_GROUP)) + scale_x_discrete(limits=c("SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY")) + geom_bar() + scale_fill_brewer(palette = "Dark2")
+print(graph8 + ggtitle("Day of Week vs. UCR Group"))
+
+ggplot(data=Final7, aes(x=Clsd_Des, color =Clsd_Des)) + geom_bar() + geom_text(stat='count', aes(label=..count..), vjust=-1) + theme(axis.text.x = element_text(angle = 90))
+
+plotTheft <- filter(Final7, OFFENSE == "THEFT")
+ggplot(data=plotTheft, aes(x=Clsd_Des, color =Clsd_Des)) + geom_bar() + geom_text(stat='count', aes(label=..count..), vjust=-1) + theme(axis.text.x = element_text(angle = 90)) + ggtitle("Theft")
+
+plotAssault <- filter(Final7, OFFENSE == "ASSAULT")
+ggplot(data=plotAssault, aes(x=Clsd_Des, color =Clsd_Des)) + geom_bar() + geom_text(stat='count', aes(label=..count..), vjust=-1) + theme(axis.text.x = element_text(angle = 90)) + ggtitle("Assault")
+
+install.packages("caret")
+library(caret)
+set.seed(1)
+trainIndex <- createDataPartition(Final7$INCIDENT_NO, p = .5, 
+                                  list = FALSE, 
+                                  times = 1)
+head(trainIndex)
+Final7_train<-Final7[trainIndex,]
+remain_data<-Final7[-trainIndex,]
+validIndex <- createDataPartition(remain_data$INCIDENT_NO, p = .6, 
+                                  list = FALSE, 
+                                  times = 1)
+Final7_validation<-remain_data[validIndex,]
+Final7_test<-remain_data[-validIndex,]
+
+
+library(GGally)
+linear_model<-lm(UCR~Clsd_code,data = Final7_test)
+pred <- predict(linear_model, newdata = Final7_validation)
+vl.res <- data.frame(valid.data$TOTAL_VALUE, pred, residuals = 
+                       valid.data$TOTAL_VALUE - pred)
+head(vl.res)
+#data_to_work<-Final7[trainIndex,]
+
+plot(linear_model)
+Final7_train$highcrime = ifelse((Final7_train$OFFENSE=="RAPE") | (Final7_train$OFFENSE=="DOMESTIC VIOLENCE") | (Final7_train$OFFENSE=="ASSAULT")  ,1,0)
+summary(Final7_train)
+Final7_train<-data_to_work
+Final7_train$highcrime = ifelse((Final7_train$OFFENSE=="RAPE") | (Final7_train$OFFENSE=="DOMESTIC VIOLENCE") | (Final7_train$OFFENSE=="ASSAULT")  ,1,0)
+
+Final_train<-separate(Final7_train, col=DATE_FROM_TIME, into=c("Hours", "Minutes"),sep =":" )
+library(fastDummies)
+Final_train<-dummy_cols(Final_train,select_columns = "Clsd_code")
+dummy_cols(Final_train,select_columns = "SUSPECT_RACE")
+library(rpart)
+data_train<-Final_train[,c(2,3,7,15,18,32,33,34,35,36,37,38,39,40,41,42,43)]
+class.tree <- rpart(highcrime ~ ., data = data_train, 
+                    control = rpart.control(maxdepth = 30))
+class.tree <- rpart(highcrime ~ ., data = data_train, 
+                    control = rpart.control(maxdepth = 30), method = "class", minsplit=1)
+pred<-predict(class.tree,data_train,type="class")
+confusionMatrix(table(pred,data_train$highcrime))
+
+# run logistic regression
+# use glm() (general linear model) with family = "binomial" to fit a logistic 
+# regression.
+logit.reg <- glm(data_train$highcrime ~ ., data = data_train, family = "binomial") 
+options(scipen=999) # disable scientific tonationtion (e)
+summary(logit.reg)
+options(max.print = 999999)
+############################################################
+set.seed(2)
+train.index2<- sample(c(1:dim(data_train)[1]), dim(data_train)[1]*0.1)
+data_final_sample <- data_train[train.index2, ]
+
+class.tree <- rpart(highcrime ~ ., data = data_final_sample, 
+                    control = rpart.control(maxdepth = 30), method = "class", minsplit=1,minbucket=50)
+pred<-predict(class.tree,data_final_sample,type="class")
+pred2<-predict(class.tree,data_final_sample,type="class")
+confusionMatrix(table(pred2,data_final_sample$highcrime))
+install.packages("ROSE")
+library(ROSE)
+data.balanced.over <- ovun.sample(highcrime~., data=data_final_sample, 
+                                  p=0.5, seed=1, 
+                                  method="over")$data
+
+class.tree <- rpart(highcrime ~ ., data = data.balanced.over, 
+                    control = rpart.control(maxdepth = 30), method = "class", minsplit=1,minbucket=50)
+pred<-predict(class.tree,data.balanced.over,type="class")
+confusionMatrix(table(pred,data.balanced.over$highcrime))
+
+
+install.packages("rpart.plot")
+library(rpart.plot)
+plotcp(class.tree)
+plot(class.tree,uniform = T)
+prp(class.tree,type = 1,extra=1,under=T,split.font = 10,varlen = -10,cex = 1.0)
+####################################################################################################################################
+Final7_validation$highcrime = ifelse((Final7_validation$OFFENSE=="RAPE") | (Final7_validation$OFFENSE=="DOMESTIC VIOLENCE") | (Final7_validation$OFFENSE=="ASSAULT")  ,1,0)
+summary(Final7_validation)
+#Final7_train<-data_to_work
+#Final7_train$highcrime = ifelse((Final7_train$OFFENSE=="RAPE") | (Final7_train$OFFENSE=="DOMESTIC VIOLENCE") | (Final7_train$OFFENSE=="ASSAULT")  ,1,0)
+
+Final_validation<-separate(Final7_validation, col=DATE_FROM_TIME, into=c("Hours", "Minutes"),sep =":" )
+library(fastDummies)
+Final_validation<-dummy_cols(Final_validation,select_columns = "Clsd_code")
+dummy_cols(Final_validation,select_columns = "SUSPECT_RACE")
+library(rpart)
+data_validation<-Final_validation[,c(2,3,7,15,18,32,33,34,35,36,37,38,39,40,41,42,43)]
+class.tree <- rpart(highcrime ~ ., data = data_validation, 
+                    control = rpart.control(maxdepth = 30))
+data.balanced.over1 <- ovun.sample(highcrime~., data=data_validation, 
+                                   p=0.5, seed=1, 
+                                   method="over")$data
+class.tree <- rpart(highcrime ~ ., data = data.balanced.over1, 
+                    control = rpart.control(maxdepth = 30), method = "class", minsplit=1)
+pred<-predict(class.tree,data.balanced.over1,type="class")
+confusionMatrix(table(pred,data.balanced.over1$highcrime))
+
+
 
